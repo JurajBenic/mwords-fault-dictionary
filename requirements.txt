@@ -1,0 +1,3 @@
+mnumbers @ git+https://github.com/JurajBenic/mNumbers
+schemdraw
+pandas
