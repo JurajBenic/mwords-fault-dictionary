@@ -1,4 +1,4 @@
-# mnumbers-fault-dictionary
+# mNumbers fault dictionary
 
 Structural fault dictionaries of series-parallel RLC one-ports, computed from the schematic alone
 with Šare's m-theory: no element values, no simulation, no symbolic network functions.
