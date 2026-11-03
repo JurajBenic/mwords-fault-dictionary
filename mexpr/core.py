@@ -26,11 +26,17 @@ What the dictionary contains (Sections 2-4 of the paper):
     faults      every element shorted (K) and opened (P): residual network,
                 its word and signature, which test detects it
                 (DC: v(l) changes, HF: v(r) changes, sweep: lambda changes,
-                port: the port itself is shorted/opened), invisible = the
-                m-word is unchanged (equal as m-numbers: compression and
-                Sare's reversal rule)
-    groups      absolute ambiguity group = same residual network (up to
-                renaming and merging of same-type neighbours),
+                port: the port itself is shorted/opened); a fault whose
+                signature equals the nominal one is structurally undetectable
+                (none of the three tests detects it for any element values;
+                value-dependent features of the response may still reveal it)
+    groups      structural ambiguity group = same residual network after
+                merging of same-type neighbours (same topology and element
+                types, possibly different values);
+                absolute ambiguity group = the sub-group of a structural
+                group formed by all opens of one series node or all shorts
+                of one parallel node (identical residual networks, element
+                values included);
                 signature ambiguity group = same quadruple
 
     >>> e = MExpr('B s (C p (B s A))')                  # network #63
@@ -39,9 +45,11 @@ What the dictionary contains (Sections 2-4 of the paper):
     >>> e.corners()
     {'delta_0': 'B1', 'delta_inf': 'B1 s B2', 'delta_K': 'B1', 'delta_P': 'P'}
     >>> for f in e.faults()[:3]: print(f)
-    Fault(element='B1', kind='K', residual='C1 p (B2 s A1)', word='CAB', quadruple=(1, 2, 1, 0), test='DC+sweep', invisible=False)
-    Fault(element='B1', kind='P', residual='P', word='P', quadruple=None, test='port', invisible=False)
-    Fault(element='C1', kind='K', residual='B1', word='B', quadruple=(0, 0, 0, 0), test='sweep', invisible=False)
+    Fault(element='B1', kind='K', residual='C1 p (B2 s A1)', word='CAB', quadruple=(1, 2, 1, 0), test='DC+sweep', undetectable=False)
+    Fault(element='B1', kind='P', residual='P', word='P', quadruple=None, test='port', undetectable=False)
+    Fault(element='C1', kind='K', residual='B1', word='B', quadruple=(0, 0, 0, 0), test='sweep', undetectable=False)
+    >>> e.ambiguity_groups()
+    {'structural': [['B2 P', 'A1 P']], 'absolute': [['B2 P', 'A1 P']], 'signature': [['nominal', 'B2 K'], ['B2 P', 'A1 P']]}
 """
 
 import re
@@ -57,7 +65,8 @@ UNIT = {'s': 'K', 'p': 'P'}                         # x s K = x,  x p P = x
 KILLER = {'s': 'P', 'p': 'K'}                       # x s P = P,  x p K = K
 REACTIVE = {'A', 'C'}
 
-Fault = namedtuple('Fault', 'element kind residual word quadruple test invisible')
+Fault = namedtuple('Fault', 'element kind residual word quadruple test undetectable')
+# undetectable = structurally undetectable: the signature (quadruple) is unchanged by the fault
 
 
 class MExprError(Exception):
@@ -287,19 +296,47 @@ class MExpr:
                 v, ls, lp, r = q = res.quadruple
                 tests = [t for t, hit in (('DC', v != v0), ('HF', r != r0), ('sweep', ls + lp != ls0 + lp0)) if hit]
                 out.append(Fault(label, kind, str(res), res.word, q, '+'.join(tests) or 'none',
-                                 res.word in word_class(self.word)))
+                                 q == self.quadruple))
+        return out
+
+    def _node_of(self):
+        """label -> (node index, 's' | 'p') of the node of the expression that contains the atom."""
+        out = {}
+        for i, level in enumerate(_levels(self.expr)):
+            words = level.split()
+            op = 'p' if 'p' in words else 's' if 's' in words else None
+            for w in words[::2]:
+                if _is_atom(w):
+                    out[w] = (i, op)
         return out
 
     def ambiguity_groups(self):
-        """{'absolute': [[...], ...], 'signature': [[...], ...]} over the faults;
-        a collapsed port (K or P) counts as a network and as a signature of its
-        own, and 'nominal' is listed in the signature group of the invisible faults."""
-        absolute, signature = {}, {self.quadruple: ['nominal']}
+        """{'structural': [[...], ...], 'absolute': [[...], ...], 'signature': [[...], ...]}
+        over the faults, as in the paper.  Structural: the same residual network after
+        merging of same-type neighbours.  Absolute: the sub-groups of a structural group
+        consisting of all opens of one series node or all shorts of one parallel node
+        (identical residual networks, element values included).  Signature: the same
+        quadruple.  A collapsed port (K or P) counts as a network and as a signature of
+        its own, and 'nominal' is listed in the signature group of the structurally
+        undetectable faults."""
+        node = self._node_of()
+        shape, signature = {}, {self.quadruple: ['nominal']}
         for f in self.faults():
-            shape = f.residual if f.quadruple is None else _fold(f.residual, lambda w: w[0], _shape)
-            absolute.setdefault(shape, []).append(f'{f.element} {f.kind}')
+            key = f.residual if f.quadruple is None else _fold(f.residual, lambda w: w[0], _shape)
+            shape.setdefault(key, []).append(f)
             signature.setdefault(f.quadruple or f.residual, []).append(f'{f.element} {f.kind}')
-        return {'absolute': [g for g in absolute.values() if len(g) > 1],
+        structural, absolute = [], []
+        for g in shape.values():
+            if len(g) < 2:
+                continue
+            structural.append([f'{f.element} {f.kind}' for f in g])
+            sub = {}
+            for f in g:
+                level, op = node[f.element]
+                if (f.kind == 'P' and op == 's') or (f.kind == 'K' and op == 'p'):
+                    sub.setdefault((level, f.kind), []).append(f'{f.element} {f.kind}')
+            absolute.extend(v for v in sub.values() if len(v) >= 2)
+        return {'structural': structural, 'absolute': absolute,
                 'signature': [g for g in signature.values() if len(g) > 1]}
 
     def dictionary(self, file=sys.stdout):
@@ -315,12 +352,13 @@ class MExpr:
         p('')
         p(f"{'fault':<9}{'faulty network':<28}{'m-word':<8}{'Phi':<16}{'detected by':<12}")
         for f in self.faults():
-            note = 'INVISIBLE' if f.invisible else ''
+            note = 'STRUCTURALLY UNDETECTABLE' if f.undetectable else ''
             p(f"{f.element + ' ' + f.kind:<9}{f.residual:<28}{f.word:<8}{str(f.quadruple or '--'):<16}{f.test:<12}{note}")
         g = self.ambiguity_groups()
         p('')
-        p(f"absolute ambiguity groups (same residual network): {g['absolute'] or 'none'}")
-        p(f"signature ambiguity groups (same quadruple):      {g['signature'] or 'none'}")
+        p(f"structural ambiguity groups (same topology after merging): {g['structural'] or 'none'}")
+        p(f"absolute ambiguity groups (identical residual networks):    {g['absolute'] or 'none'}")
+        p(f"signature ambiguity groups (same quadruple):                {g['signature'] or 'none'}")
 
 
 if __name__ == '__main__':

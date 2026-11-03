@@ -2,7 +2,7 @@
 schematic.py -- draw the schematic of a series/parallel RLC one-port with
 schemdraw, straight from its m-expression.
 
-    >>> from mexpr_re import MExpr
+    >>> from mexpr import MExpr
     >>> from schematic import draw
     >>> draw(MExpr('B s (C p (B s A))'))         # displayed inline in Jupyter
 
