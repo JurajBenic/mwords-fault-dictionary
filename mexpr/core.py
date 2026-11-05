@@ -6,8 +6,8 @@ computed from its m-expression (no element values, no simulation).
 
 An m-expression is a text such as 'B s (C p (B s A))': atoms A (capacitor),
 B (resistor), C (inductor) joined by
-    s ... series connection      (MNumber &)
-    p ... parallel connection    (MNumber |)
+    s ... series connection      (MWord &)
+    p ... parallel connection    (MWord |)
 Mixed s and p on one level need parentheses: 'B s (A p C)', not 'B s A p C'.
 Every atom gets a label (B1, B2, C1, ...) so that a reduced network can say
 WHICH element survived.  Two ideal atoms may appear in a reduced network,
@@ -15,8 +15,8 @@ WHICH element survived.  Two ideal atoms may appear in a reduced network,
 with the absorption rules   x s K = x,  x s P = P,  x p P = x,  x p K = K.
 
 Everything is computed on the text itself, from the innermost parentheses
-outwards (_levels, _fold).  The same walk gives the m-number of the network
-(atoms = MNumber) and any reduced network (atoms = text, K, P).
+outwards (_levels, _fold).  The same walk gives the m-word of the network
+(atoms = MWord) and any reduced network (atoms = text, K, P).
 
 What the dictionary contains (Sections 2-4 of the paper):
     word        canonical form of the m-word (capital irreducible reduct)
@@ -56,9 +56,9 @@ import re
 import sys
 from collections import Counter, namedtuple
 from functools import lru_cache
-from mnumbers import MNumber
+from mwords import MWord
 
-MNumber.set_alphabet('abc', m_continuum=True)       # v(a) = -1, v(b) = 0, v(c) = 1
+MWord.set_alphabet('abc', m_continuum=True)       # v(a) = -1, v(b) = 0, v(c) = 1
 
 GROUP = re.compile(r'\(([^()]*)\)')                 # innermost parentheses
 UNIT = {'s': 'K', 'p': 'P'}                         # x s K = x,  x p P = x
@@ -176,7 +176,7 @@ def _reducts(w):
     out, found = set(), False
     for i in range(len(w) - 3):
         s = w[i:i + 4]
-        if MNumber(s).lmb == MNumber(s[0] + s[3]).lmb:
+        if MWord(s).lmb == MWord(s[0] + s[3]).lmb:
             found = True
             out |= _reducts(w[:i] + s[0] + s[3] + w[i + 4:])
     return frozenset(out) if found else frozenset([w])
@@ -187,13 +187,13 @@ def canonical(m):
     The canonical form of an m-word: its unique irreducible reduct written in
     capital letters only (Section 2.3).
 
-    >>> canonical(MNumber('BBcbCCacABbAaBBB'))
+    >>> canonical(MWord('BBcbCCacABbAaBBB'))
     'BCAB'
     """
     caps = [w for w in _reducts(m.m_word) if all(w[i] == w[i + 1] for i in range(0, len(w), 2))]
     if len(caps) != 1:
         raise MExprError(f'no unique capital reduct of {m.l2U}')
-    return MNumber(caps[0]).l2U
+    return MWord(caps[0]).l2U
 
 
 def word_class(w):
@@ -211,9 +211,9 @@ def word_class(w):
         for i in range(len(u)):
             for j in range(i + 2, len(u)):
                 if u[i] == u[j]:
-                    for red in _reducts(MNumber(u[:i + 1] + u[i + 1:j][::-1] + u[j:]).m_word):
+                    for red in _reducts(MWord(u[:i + 1] + u[i + 1:j][::-1] + u[j:]).m_word):
                         if all(red[k] == red[k + 1] for k in range(0, len(red), 2)):
-                            cap = MNumber(red).l2U
+                            cap = MWord(red).l2U
                             if cap not in seen:
                                 seen.add(cap); todo.append(cap)
     return frozenset(seen)
@@ -253,19 +253,19 @@ class MExpr:
         return self.expr if self.expr in ('K', 'P') else None
 
     @property
-    def mnumber(self):
-        """The raw m-word of the network (8n-6 letters), by MNumber's & and |."""
-        return _fold(self.expr, lambda w: MNumber(w[0]), _connect)
+    def mword(self):
+        """The raw m-word of the network (8n-6 letters), by MWord's & and |."""
+        return _fold(self.expr, lambda w: MWord(w[0]), _connect)
 
     @property
     def word(self):
         """Canonical form, e.g. 'BCAB'."""
-        return canonical(self.mnumber)
+        return canonical(self.mword)
 
     @property
     def quadruple(self):
         """(v(l), lambda_s, lambda_p, v(r)) -- the signature."""
-        return self.mnumber.quadruple
+        return self.mword.quadruple
 
     def substitute(self, choice):
         """
@@ -345,7 +345,7 @@ class MExpr:
         v, ls, lp, r = self.quadruple
         others = sorted(word_class(self.word) - {self.word})
         p(f'network     {self}')
-        p(f'm-word      {self.mnumber.l2U}  ->  {self.word}'
+        p(f'm-word      {self.mword.l2U}  ->  {self.word}'
           + (f'  (= {", ".join(others)} by the reversal rule)' if others else ''))
         p(f'signature   Phi = {self.quadruple}   Z(s) = s^{v} P/Q, deg P = {lp}, deg Q = {ls}, lambda = {ls + lp}')
         p('corners     ' + '   '.join(f'{k} = {val}' for k, val in self.corners().items()))

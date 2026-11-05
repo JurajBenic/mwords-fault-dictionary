@@ -1,4 +1,4 @@
-# mNumbers fault dictionary
+# mWords fault dictionary
 
 Structural fault dictionaries of series-parallel RLC one-ports, computed from the schematic alone
 with Šare's m-theory: no element values, no simulation, no symbolic network functions.
@@ -33,7 +33,7 @@ of level or of damping. In the benchmark every such fault is a resistor fault.
 ## Installation
 
 Python 3.10 or newer. The only hard dependency is the package
-[`mnumbers`](https://github.com/JurajBenic/mNumbers), which implements the m-word arithmetic;
+[`mwords`](https://github.com/JurajBenic/mWords) (v0.2.0), which implements the m-word arithmetic;
 `schemdraw` and `pandas` are needed for the notebook only.
 
 ```bash
@@ -140,7 +140,8 @@ requirements.txt
 * E. L. Ladenheim, *A Synthesis of Biquadratic Impedances*, M.Sc. thesis, Polytechnic Institute of
   Brooklyn, 1948; A. Morelli, M. C. Smith, *Passive Network Synthesis: An Approach to
   Classification*, SIAM, 2019.
-* The `mnumbers` package: https://github.com/JurajBenic/mNumbers
+* J. Benić, I. Kuzmanović Ivičić, *mWords: A Python library for working with m-words*, version 0.2.0,
+  2026, https://github.com/JurajBenic/mWords.
 
 ## License
 
