@@ -126,7 +126,7 @@ def _top_op(text):
 
 # ----- the three meanings of one level 'x op y op z'
 def _connect(op, atoms):
-    """m-numbers: & in series, | in parallel."""
+    """m-words: & in series, | in parallel."""
     result = atoms[0]
     for x in atoms[1:]:
         result = (result & x) if op == 's' else (result | x)
@@ -168,7 +168,7 @@ def _shape(op, items):
 
 
 # --------------------------------------------------------------------
-#  Words: canonical form and equality as m-numbers
+#  Words: canonical form and equality of m-words
 # --------------------------------------------------------------------
 @lru_cache(maxsize=None)
 def _reducts(w):
@@ -198,7 +198,7 @@ def canonical(m):
 
 def word_class(w):
     """
-    All capital irreducible words equal to w as m-numbers: Sare's reversal
+    All capital irreducible words equal to w as m-words: Sare's reversal
     rule p u p = p u<- p applied to any pair of equal letters, then
     compression.
 

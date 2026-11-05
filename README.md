@@ -32,7 +32,7 @@ of level or of damping. In the benchmark every such fault is a resistor fault.
 
 ## Installation
 
-Python 3.10 or newer. The only hard dependency is the package
+Python 3.12 or newer. The only hard dependency is the package
 [`mwords`](https://github.com/JurajBenic/mWords) (v0.2.0), which implements the m-word arithmetic;
 `schemdraw` and `pandas` are needed for the notebook only.
 
